@@ -1,0 +1,180 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Cores do Brasil - Versão Clean */
+:root {
+  /* Verde suave */
+  --brasil-verde: #10b981;
+  --brasil-verde-dark: #059669;
+  --brasil-verde-light: #34d399;
+  
+  /* Amarelo suave */
+  --brasil-amarelo: #fbbf24;
+  --brasil-amarelo-dark: #f59e0b;
+  --brasil-amarelo-light: #fcd34d;
+  
+  /* Azul suave */
+  --brasil-azul: #3b82f6;
+  --brasil-azul-dark: #2563eb;
+  --brasil-azul-light: #60a5fa;
+  
+  /* Neutros clean */
+  --slate-50: #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
+  --slate-600: #475569;
+  
+  /* Sombras suaves */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.03);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 215 25% 27%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 27%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 27%;
+    --primary: 160 84% 39%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 45 93% 55%;
+    --secondary-foreground: 215 25% 27%;
+    --muted: 210 40% 98%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 217 91% 60%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 160 84% 39%;
+    --radius: 1rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  body {
+    @apply bg-white text-slate-600 font-sans antialiased;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-slate-700 font-semibold;
+  }
+}
+
+@layer components {
+  /* Cards clean */
+  .card-clean {
+    @apply bg-white rounded-2xl border border-slate-100;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    transition: all 0.2s ease;
+  }
+  
+  .card-clean:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+    transform: translateY(-1px);
+  }
+  
+  /* Botões clean */
+  .btn-primary {
+    @apply bg-emerald-500 hover:bg-emerald-600 text-white font-medium rounded-xl transition-all;
+  }
+  
+  .btn-secondary {
+    @apply bg-amber-400 hover:bg-amber-500 text-slate-800 font-medium rounded-xl transition-all;
+  }
+  
+  /* Inputs clean */
+  .input-clean {
+    @apply bg-white border-2 border-slate-100 rounded-xl text-slate-600 placeholder:text-slate-400;
+    @apply focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100 transition-all;
+  }
+  
+  /* Badges clean */
+  .badge-verde {
+    @apply bg-emerald-50 text-emerald-600 border border-emerald-100;
+  }
+  
+  .badge-amarelo {
+    @apply bg-amber-50 text-amber-600 border border-amber-100;
+  }
+  
+  .badge-azul {
+    @apply bg-blue-50 text-blue-600 border border-blue-100;
+  }
+  
+  /* Loading skeleton */
+  .skeleton {
+    @apply bg-slate-100 rounded-xl;
+    background: linear-gradient(
+      90deg,
+      #f1f5f9 25%,
+      #e2e8f0 50%,
+      #f1f5f9 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+  
+  /* Scrollbar clean */
+  .scrollbar-clean::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .scrollbar-clean::-webkit-scrollbar-track {
+    @apply bg-slate-50 rounded-full;
+  }
+  
+  .scrollbar-clean::-webkit-scrollbar-thumb {
+    @apply bg-slate-200 rounded-full;
+  }
+  
+  .scrollbar-clean::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-300;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-emerald-500 to-teal-500;
+  }
+  
+  .bg-gradient-soft {
+    background: linear-gradient(135deg, #f0fdf4 0%, #fffbeb 50%, #eff6ff 100%);
+  }
+}
