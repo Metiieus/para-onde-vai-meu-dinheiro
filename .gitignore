@@ -1,0 +1,69 @@
+# =============================================
+# Para Onde Vai Meu Dinheiro — .gitignore
+# =============================================
+
+# ---- Dependências ----
+node_modules/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist-info/
+
+# ---- Build do Frontend ----
+app/dist/
+app/.vite/
+
+# ---- Variáveis de Ambiente (NUNCA commitar) ----
+.env
+.env.local
+.env.*.local
+backend/.env
+
+# ---- Logs ----
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+
+# ---- Cache e temporários ----
+.cache/
+.parcel-cache/
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# ---- Editores e IDEs ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ---- Python / Backend ----
+venv/
+.venv/
+env/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# ---- Testes ----
+/coverage/
+*.lcov
+
+# ---- Docker ----
+.dockerignore
+
+# ---- Misc ----
+*.pem
+*.key
+*.cert
