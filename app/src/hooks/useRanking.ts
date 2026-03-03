@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { buscarDeputados, buscarDespesasDeputado } from '@/services/api';
+import { buscarRanking, ApiError } from '@/services/api';
 import type { RankingItem } from '@/types';
 
 interface UseRankingReturn {
@@ -13,19 +13,13 @@ interface UseRankingReturn {
   setAno: (ano: number) => void;
 }
 
-const CATEGORIAS_MAP: Record<string, string> = {
-  'combustivel': 'Combustíveis e Lubrificantes',
-  'passagem': 'Passagens Aéreas',
-  'telefonia': 'Telefonia',
-  'correio': 'Serviços Postais',
-  'alimentacao': 'Alimentação',
-  'hospedagem': 'Hospedagem',
-  'divulgacao': 'Divulgação da Atividade Parlamentar',
-  'consultoria': 'Consultorias e Assessorias',
-  'manutencao': 'Manutenção de Escritório',
-  'locacao': 'Locação de Veículos',
-};
-
+/**
+ * Hook refatorado para buscar o ranking de gastos.
+ *
+ * MELHORIA CRÍTICA: Elimina o problema de N+1 queries. Agora faz uma única
+ * chamada ao endpoint /api/ranking do backend, que processa os dados em
+ * paralelo no servidor e os serve com cache.
+ */
 export const useRanking = (): UseRankingReturn => {
   const [ranking, setRanking] = useState<RankingItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -33,64 +27,35 @@ export const useRanking = (): UseRankingReturn => {
   const [categoriaAtual, setCategoriaAtual] = useState<string>('total');
   const [ano, setAno] = useState<number>(2024);
 
-  const carregarRanking = useCallback(async (categoria: string = 'total', anoSelecionado: number = 2024) => {
+  const carregarRanking = useCallback(async (
+    categoria: string = 'total',
+    anoSelecionado: number = 2024
+  ) => {
     setLoading(true);
     setError(null);
-    
+
     try {
-      // Busca todos os deputados
-      const deputados = await buscarDeputados();
-      
-      // Limita a 50 deputados para não sobrecarregar a API
-      const deputadosLimitados = deputados.slice(0, 50);
-      
-      const rankingData: RankingItem[] = [];
-      
-      // Para cada deputado, busca as despesas
-      for (const deputado of deputadosLimitados) {
-        try {
-          const despesas = await buscarDespesasDeputado(deputado.id, { ano: anoSelecionado });
-          
-          let valorTotal = 0;
-          
-          if (categoria === 'total') {
-            valorTotal = despesas.reduce((acc: number, d: { valorLiquido: number }) => acc + d.valorLiquido, 0);
-          } else {
-            const categoriaNome = CATEGORIAS_MAP[categoria];
-            valorTotal = despesas
-              .filter((d: { tipoDespesa?: string }) => d.tipoDespesa?.toLowerCase().includes(categoriaNome?.toLowerCase() || ''))
-              .reduce((acc: number, d: { valorLiquido: number }) => acc + d.valorLiquido, 0);
-          }
-          
-          if (valorTotal > 0) {
-            rankingData.push({
-              id: deputado.id,
-              nome: deputado.nome,
-              partido: deputado.siglaPartido,
-              uf: deputado.siglaUf,
-              foto: deputado.urlFoto,
-              valorTotal,
-              categoria,
-              posicao: 0,
-            });
-          }
-        } catch (err) {
-          console.warn(`Erro ao buscar despesas do deputado ${deputado.id}:`, err);
-        }
-      }
-      
-      // Ordena por valor total (maior primeiro)
-      rankingData.sort((a, b) => b.valorTotal - a.valorTotal);
-      
-      // Atualiza posições
-      rankingData.forEach((item, index) => {
-        item.posicao = index + 1;
-      });
-      
-      setRanking(rankingData);
+      const dados = await buscarRanking({ categoria, ano: anoSelecionado, limite: 50 });
+
+      // Mapeia os dados da API (snake_case) para o tipo do frontend (camelCase)
+      const rankingMapeado: RankingItem[] = dados.map(item => ({
+        id: item.id,
+        nome: item.nome,
+        partido: item.partido,
+        uf: item.uf,
+        foto: item.foto,
+        valorTotal: item.valor_total,
+        categoria: item.categoria,
+        posicao: item.posicao,
+      }));
+
+      setRanking(rankingMapeado);
     } catch (err) {
-      setError('Erro ao carregar ranking');
-      console.error(err);
+      if (err instanceof ApiError) {
+        setError(`Erro ao carregar ranking: ${err.detail ?? err.message}`);
+      } else {
+        setError('Não foi possível carregar o ranking. Verifique sua conexão e tente novamente.');
+      }
     } finally {
       setLoading(false);
     }

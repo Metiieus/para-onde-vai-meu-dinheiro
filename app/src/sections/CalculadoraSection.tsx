@@ -8,7 +8,17 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ValorTraduzido, ListaTraducoes } from '@/components/ValorTraduzido';
 import { GraficoPizza } from '@/components/GraficoBarras';
-import { ArrowLeft, Calculator, Wallet, TrendingDown, Info, PiggyBank, Briefcase } from 'lucide-react';
+import { EstadoErro } from '@/components/EstadoFeedback';
+import {
+  ArrowLeft,
+  Calculator,
+  Wallet,
+  TrendingDown,
+  Info,
+  PiggyBank,
+  Briefcase,
+  Loader2,
+} from 'lucide-react';
 import { useCalculadora } from '@/hooks/useCalculadora';
 import { useUsuario } from '@/hooks/useUsuario';
 import { formatarMoeda } from '@/services/valorTranslator';
@@ -20,26 +30,29 @@ interface CalculadoraSectionProps {
 export function CalculadoraSection({ onVoltar }: CalculadoraSectionProps) {
   const [salarioInput, setSalarioInput] = useState<string>('5000');
   const [mostrarResultado, setMostrarResultado] = useState(false);
-  
-  const { 
+
+  const {
     salarioBruto,
-    salarioLiquido, 
-    totalImpostos, 
+    salarioLiquido,
+    totalImpostos,
     percentualImpostos,
     impostos,
     destinos,
     diasTrabalhoImpostos,
+    notaMetodologica,
+    loading,
+    error,
     setSalarioBruto,
-    calcular 
+    calcular,
   } = useCalculadora();
 
   const { salvarPerfil, estaLogado } = useUsuario();
 
-  const handleCalcular = () => {
+  const handleCalcular = async () => {
     const valor = parseFloat(salarioInput.replace(/[^0-9,]/g, '').replace(',', '.'));
-    if (valor > 0) {
+    if (valor > 0 && valor <= 10_000_000) {
       setSalarioBruto(valor);
-      calcular();
+      await calcular();
       setMostrarResultado(true);
     }
   };
@@ -60,12 +73,17 @@ export function CalculadoraSection({ onVoltar }: CalculadoraSectionProps) {
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={onVoltar}>
-              <ArrowLeft className="w-5 h-5" />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onVoltar}
+              aria-label="Voltar para a página inicial"
+            >
+              <ArrowLeft className="w-5 h-5" aria-hidden="true" />
             </Button>
             <div>
               <h1 className="font-bold text-lg flex items-center gap-2">
-                <Calculator className="w-5 h-5" />
+                <Calculator className="w-5 h-5" aria-hidden="true" />
                 Calculadora do Meu Imposto
               </h1>
             </div>
@@ -79,7 +97,10 @@ export function CalculadoraSection({ onVoltar }: CalculadoraSectionProps) {
           <div className="max-w-md mx-auto">
             <Card>
               <CardHeader className="text-center">
-                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div
+                  className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4"
+                  aria-hidden="true"
+                >
                   <Wallet className="w-8 h-8 text-primary" />
                 </div>
                 <CardTitle>Qual é o seu salário bruto?</CardTitle>
@@ -96,48 +117,60 @@ export function CalculadoraSection({ onVoltar }: CalculadoraSectionProps) {
                     placeholder="5.000,00"
                     value={salarioInput}
                     onChange={(e) => setSalarioInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleCalcular()}
                     className="text-2xl font-bold text-center h-14"
+                    aria-describedby="salario-hint"
                   />
+                  <p id="salario-hint" className="text-xs text-muted-foreground mt-1 text-center">
+                    Digite o valor bruto antes dos descontos
+                  </p>
                 </div>
 
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    className="flex-1"
-                    onClick={() => setSalarioInput('1412')}
-                  >
-                    1 SM
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="flex-1"
-                    onClick={() => setSalarioInput('3000')}
-                  >
-                    R$ 3.000
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="flex-1"
-                    onClick={() => setSalarioInput('5000')}
-                  >
-                    R$ 5.000
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="flex-1"
-                    onClick={() => setSalarioInput('10000')}
-                  >
-                    R$ 10.000
-                  </Button>
+                <div className="flex gap-2" role="group" aria-label="Valores de exemplo">
+                  {[
+                    { label: '1 Salário Mínimo', value: '1412' },
+                    { label: 'R$ 3.000', value: '3000' },
+                    { label: 'R$ 5.000', value: '5000' },
+                    { label: 'R$ 10.000', value: '10000' },
+                  ].map(({ label, value }) => (
+                    <Button
+                      key={value}
+                      variant="outline"
+                      className="flex-1 text-xs"
+                      onClick={() => setSalarioInput(value)}
+                      aria-label={`Usar ${label}`}
+                    >
+                      {label === '1 Salário Mínimo' ? '1 SM' : `R$ ${Number(value).toLocaleString('pt-BR')}`}
+                    </Button>
+                  ))}
                 </div>
 
-                <Button onClick={handleCalcular} className="w-full h-12 text-lg">
-                  Calcular Meu Imposto
+                <Button
+                  onClick={handleCalcular}
+                  className="w-full h-12 text-lg"
+                  disabled={loading}
+                  aria-busy={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" aria-hidden="true" />
+                      Calculando...
+                    </>
+                  ) : (
+                    'Calcular Meu Imposto'
+                  )}
                 </Button>
 
+                {error && (
+                  <EstadoErro
+                    mensagem={error}
+                    onTentarNovamente={handleCalcular}
+                  />
+                )}
+
                 <div className="text-center text-sm text-muted-foreground">
-                  <Info className="w-4 h-4 inline mr-1" />
-                  Cálculo baseado em alíquotas médias do Brasil
+                  <Info className="w-4 h-4 inline mr-1" aria-hidden="true" />
+                  Cálculo baseado nas tabelas progressivas oficiais de 2024
                 </div>
               </CardContent>
             </Card>
@@ -150,7 +183,7 @@ export function CalculadoraSection({ onVoltar }: CalculadoraSectionProps) {
               <Card className="bg-red-50 border-red-200">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-3 mb-2">
-                    <TrendingDown className="w-6 h-6 text-red-600" />
+                    <TrendingDown className="w-6 h-6 text-red-600" aria-hidden="true" />
                     <span className="text-red-700 font-medium">Total em Impostos</span>
                   </div>
                   <p className="text-3xl font-bold text-red-700">{formatarMoeda(totalImpostos)}</p>
@@ -163,7 +196,7 @@ export function CalculadoraSection({ onVoltar }: CalculadoraSectionProps) {
               <Card className="bg-green-50 border-green-200">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-3 mb-2">
-                    <PiggyBank className="w-6 h-6 text-green-600" />
+                    <PiggyBank className="w-6 h-6 text-green-600" aria-hidden="true" />
                     <span className="text-green-700 font-medium">Seu Salário Líquido</span>
                   </div>
                   <p className="text-3xl font-bold text-green-700">{formatarMoeda(salarioLiquido)}</p>
@@ -176,16 +209,26 @@ export function CalculadoraSection({ onVoltar }: CalculadoraSectionProps) {
               <Card className="bg-blue-50 border-blue-200">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-3 mb-2">
-                    <Briefcase className="w-6 h-6 text-blue-600" />
+                    <Briefcase className="w-6 h-6 text-blue-600" aria-hidden="true" />
                     <span className="text-blue-700 font-medium">Dias Trabalhados</span>
                   </div>
                   <p className="text-3xl font-bold text-blue-700">{diasTrabalhoImpostos} dias</p>
                   <p className="text-sm text-blue-600 mt-1">
-                    Apenas para pagar impostos
+                    Apenas para pagar INSS e IR
                   </p>
                 </CardContent>
               </Card>
             </div>
+
+            {/* Nota Metodológica */}
+            {notaMetodologica && (
+              <Card className="bg-amber-50 border-amber-200">
+                <CardContent className="p-4 flex gap-3">
+                  <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                  <p className="text-sm text-amber-800">{notaMetodologica}</p>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Detalhes */}
             <Tabs defaultValue="destinos" className="w-full">
@@ -197,11 +240,11 @@ export function CalculadoraSection({ onVoltar }: CalculadoraSectionProps) {
 
               <TabsContent value="destinos" className="space-y-4">
                 <div className="grid lg:grid-cols-2 gap-6">
-                  <GraficoPizza 
-                    dados={dadosGrafico} 
+                  <GraficoPizza
+                    dados={dadosGrafico}
                     titulo="Distribuição dos Seus Impostos"
                   />
-                  
+
                   <Card>
                     <CardHeader>
                       <CardTitle>Destino do Dinheiro</CardTitle>
@@ -217,7 +260,7 @@ export function CalculadoraSection({ onVoltar }: CalculadoraSectionProps) {
                               </div>
                               <span className="font-bold">{formatarMoeda(destino.valor)}</span>
                             </div>
-                            <Progress value={destino.percentual} className="h-2" />
+                            <Progress value={destino.percentual} className="h-2" aria-label={`${destino.nome}: ${destino.percentual.toFixed(1)}%`} />
                             <p className="text-xs text-muted-foreground mt-1">
                               {destino.descricao}
                             </p>
@@ -239,7 +282,7 @@ export function CalculadoraSection({ onVoltar }: CalculadoraSectionProps) {
               <TabsContent value="impostos">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Breakdown dos Impostos</CardTitle>
+                    <CardTitle>Detalhamento dos Impostos</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
@@ -248,11 +291,14 @@ export function CalculadoraSection({ onVoltar }: CalculadoraSectionProps) {
                           <div>
                             <p className="font-medium">{imposto.nome}</p>
                             <p className="text-sm text-muted-foreground">{imposto.descricao}</p>
+                            {imposto.tipo === 'consumo' && (
+                              <Badge variant="outline" className="text-xs mt-1">Estimativa sobre consumo</Badge>
+                            )}
                           </div>
                           <div className="text-right">
                             <p className="font-bold">{formatarMoeda(imposto.valor)}</p>
                             <p className="text-sm text-muted-foreground">
-                              {((imposto.valor / salarioBruto) * 100).toFixed(1)}%
+                              {imposto.aliquota.toFixed(1)}%
                             </p>
                           </div>
                         </div>
