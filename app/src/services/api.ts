@@ -1,215 +1,215 @@
-import axios from 'axios';
+/**
+ * Serviço de API Centralizado
+ *
+ * MELHORIA CRÍTICA: Todas as chamadas de dados agora passam exclusivamente
+ * pelo backend (BFF). O frontend não acessa mais as APIs governamentais diretamente,
+ * eliminando o problema de N+1 queries e aproveitando o cache do servidor.
+ */
 
-// Cliente para API da Câmara dos Deputados
-export const apiCamara = axios.create({
-  baseURL: 'https://dadosabertos.camara.leg.br/api/v2',
-  headers: {
-    'Accept': 'application/json',
-  },
-});
+// URL do backend configurável via variável de ambiente
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:8000';
 
-// Cliente para API do Senado Federal
-export const apiSenado = axios.create({
-  baseURL: 'https://legis.senado.leg.br/dadosabertos',
-  headers: {
-    'Accept': 'application/json',
-  },
-});
+// ==================== CLIENTE HTTP BASE ====================
 
-// Cliente para API do Portal da Transparência (requer token)
-export const apiTransparencia = axios.create({
-  baseURL: 'https://api.portaldatransparencia.gov.br/api-de-dados',
-  headers: {
-    'Accept': 'application/json',
-  },
-});
-
-// Interceptor para adicionar token do Portal da Transparência
-apiTransparencia.interceptors.request.use((config) => {
-  const token = localStorage.getItem('transparencia_token');
-  if (token) {
-    config.headers['chave-api-dados'] = token;
+class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+    public readonly detail?: string
+  ) {
+    super(message);
+    this.name = 'ApiError';
   }
-  return config;
-});
+}
 
-// Função para buscar deputados
-export const buscarDeputados = async (params?: { nome?: string; siglaUf?: string; siglaPartido?: string; idLegislatura?: number }) => {
-  const response = await apiCamara.get('/deputados', { params });
-  return response.data.dados || [];
-};
+async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const url = `${BACKEND_URL}${path}`;
+  const response = await fetch(url, {
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    ...options,
+  });
 
-// Função para buscar detalhes de um deputado
-export const buscarDeputadoDetalhes = async (id: number) => {
-  const response = await apiCamara.get(`/deputados/${id}`);
-  return response.data.dados;
-};
-
-// Função para buscar despesas de um deputado
-export const buscarDespesasDeputado = async (id: number, params?: { ano?: number; mes?: number; ordem?: string; ordenarPor?: string }) => {
-  const response = await apiCamara.get(`/deputados/${id}/despesas`, { params });
-  return response.data.dados || [];
-};
-
-// Função para buscar senadores
-export const buscarSenadores = async () => {
-  const response = await apiSenado.get('/senador/lista/atual');
-  return response.data.ListaParlamentarEmExercicio?.Parlamentares?.Parlamentar || [];
-};
-
-// Função para buscar despesas de senador
-export const buscarDespesasSenador = async (codigoSenador: string, ano: number) => {
-  try {
-    const response = await apiSenado.get(`/senador/${codigoSenador}/despesas/${ano}`);
-    return response.data;
-  } catch (error) {
-    console.error('Erro ao buscar despesas do senador:', error);
-    return null;
+  if (!response.ok) {
+    let detail: string | undefined;
+    try {
+      const body = await response.json();
+      detail = body?.detail;
+    } catch {
+      // Ignora erro ao parsear o corpo do erro
+    }
+    throw new ApiError(
+      response.status,
+      `Erro ${response.status} ao acessar ${path}`,
+      detail
+    );
   }
-};
 
-// Função para buscar órgãos
-export const buscarOrgaos = async () => {
-  const response = await apiCamara.get('/orgaos');
-  return response.data.dados || [];
-};
+  return response.json() as Promise<T>;
+}
 
-// Função para buscar partidos
-export const buscarPartidos = async () => {
-  const response = await apiCamara.get('/partidos');
-  return response.data.dados || [];
-};
+// ==================== TIPOS ====================
 
-// Função para buscar legislaturas
-export const buscarLegislaturas = async () => {
-  const response = await apiCamara.get('/legislaturas');
-  return response.data.dados || [];
-};
+export interface DeputadoResumo {
+  id: number;
+  nome: string;
+  partido: string;
+  uf: string;
+  foto: string;
+  email: string;
+}
 
-// Função para buscar eventos
-export const buscarEventos = async (params?: { dataInicio?: string; dataFim?: string }) => {
-  const response = await apiCamara.get('/eventos', { params });
-  return response.data.dados || [];
-};
+export interface DeputadoDetalhe {
+  id: number;
+  nome: string;
+  nome_civil: string;
+  partido: string;
+  uf: string;
+  foto: string;
+  email: string;
+  telefone: string;
+  gabinete: string;
+  situacao: string;
+  condicao_eleitoral: string;
+}
 
-// Função para buscar proposições
-export const buscarProposicoes = async (params?: { siglaTipo?: string; numero?: string; ano?: number; idDeputadoAutor?: number }) => {
-  const response = await apiCamara.get('/proposicoes', { params });
-  return response.data.dados || [];
-};
+export interface Despesa {
+  ano: number;
+  mes: number;
+  tipo_despesa: string;
+  data_documento: string;
+  valor_documento: number;
+  valor_liquido: number;
+  fornecedor: string;
+  cnpj_cpf_fornecedor: string;
+  url_documento?: string;
+}
 
-// Função para buscar votações
-export const buscarVotacoes = async (params?: { dataInicio?: string; dataFim?: string; idOrgao?: number }) => {
-  const response = await apiCamara.get('/votacoes', { params });
-  return response.data.dados || [];
-};
+export interface RankingItemApi {
+  id: number;
+  nome: string;
+  partido: string;
+  uf: string;
+  foto: string;
+  valor_total: number;
+  categoria: string;
+  posicao: number;
+}
 
-// Função para buscar licitações da Câmara
-export const buscarLicitacoesCamara = async (ano: number) => {
-  try {
-    const response = await apiCamara.get('/licitacoes', { params: { ano } });
-    return response.data.dados || [];
-  } catch (error) {
-    console.error('Erro ao buscar licitações:', error);
-    return [];
-  }
-};
+export interface ResultadoCalculadora {
+  salario_bruto: number;
+  salario_liquido: number;
+  total_impostos: number;
+  percentual_impostos: number;
+  dias_trabalho_impostos: number;
+  impostos: Array<{
+    nome: string;
+    valor: number;
+    aliquota: number;
+    descricao: string;
+    tipo: string;
+  }>;
+  destinos: Array<{
+    nome: string;
+    valor: number;
+    percentual: number;
+    descricao: string;
+    traducoes: string[];
+  }>;
+  traducoes: Array<{
+    valor_original: number;
+    descricao: string;
+    icone: string;
+    cor: string;
+  }>;
+  nota_metodologica: string;
+}
 
-// Função para buscar despesas do governo federal (Portal da Transparência)
-export const buscarDespesasGoverno = async (params: { dataInicio: string; dataFim: string; pagina?: number }) => {
-  try {
-    const response = await apiTransparencia.get('/despesas/documentos', { params });
-    return response.data || [];
-  } catch (error) {
-    console.error('Erro ao buscar despesas do governo:', error);
-    return [];
-  }
-};
+export interface TraducaoValor {
+  valor_original: number;
+  traducoes: Array<{
+    valor_original: number;
+    descricao: string;
+    icone: string;
+    cor: string;
+  }>;
+}
 
-// Função para buscar contratos do governo federal
-export const buscarContratosGoverno = async (params?: { dataInicial?: string; dataFinal?: string }) => {
-  try {
-    const response = await apiTransparencia.get('/contratos', { params });
-    return response.data || [];
-  } catch (error) {
-    console.error('Erro ao buscar contratos:', error);
-    return [];
-  }
-};
+// ==================== FUNÇÕES DE API ====================
 
-// Função para buscar convênios
-export const buscarConvenios = async (params?: { dataInicial?: string; dataFinal?: string }) => {
-  try {
-    const response = await apiTransparencia.get('/convenios', { params });
-    return response.data || [];
-  } catch (error) {
-    console.error('Erro ao buscar convênios:', error);
-    return [];
-  }
-};
+/**
+ * Busca a lista de deputados, com filtros opcionais.
+ */
+export async function buscarDeputados(params?: {
+  nome?: string;
+  uf?: string;
+  partido?: string;
+}): Promise<DeputadoResumo[]> {
+  const query = new URLSearchParams();
+  if (params?.nome) query.set('nome', params.nome);
+  if (params?.uf) query.set('uf', params.uf);
+  if (params?.partido) query.set('partido', params.partido);
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  return apiFetch<DeputadoResumo[]>(`/api/deputados${qs}`);
+}
 
-// Função para buscar viagens a serviço
-export const buscarViagens = async (params?: { dataInicio?: string; dataFim?: string }) => {
-  try {
-    const response = await apiTransparencia.get('/viagens', { params });
-    return response.data || [];
-  } catch (error) {
-    console.error('Erro ao buscar viagens:', error);
-    return [];
-  }
-};
+/**
+ * Busca os detalhes de um deputado específico.
+ */
+export async function buscarDeputadoDetalhes(id: number): Promise<DeputadoDetalhe> {
+  return apiFetch<DeputadoDetalhe>(`/api/deputados/${id}`);
+}
 
-// Função para buscar CEIS (empresas inidôneas)
-export const buscarCEIS = async () => {
-  try {
-    const response = await apiTransparencia.get('/ceis');
-    return response.data || [];
-  } catch (error) {
-    console.error('Erro ao buscar CEIS:', error);
-    return [];
-  }
-};
+/**
+ * Busca as despesas de um deputado.
+ */
+export async function buscarDespesasDeputado(
+  id: number,
+  params?: { ano?: number; mes?: number }
+): Promise<Despesa[]> {
+  const query = new URLSearchParams();
+  if (params?.ano) query.set('ano', String(params.ano));
+  if (params?.mes) query.set('mes', String(params.mes));
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  return apiFetch<Despesa[]>(`/api/deputados/${id}/despesas${qs}`);
+}
 
-// Função para buscar CNEP (empresas punidas)
-export const buscarCNEP = async () => {
-  try {
-    const response = await apiTransparencia.get('/cnep');
-    return response.data || [];
-  } catch (error) {
-    console.error('Erro ao buscar CNEP:', error);
-    return [];
-  }
-};
+/**
+ * Busca o ranking de gastos dos deputados.
+ * O processamento pesado (N+1) é feito no servidor, aproveitando o cache.
+ */
+export async function buscarRanking(params?: {
+  categoria?: string;
+  ano?: number;
+  limite?: number;
+}): Promise<RankingItemApi[]> {
+  const query = new URLSearchParams();
+  if (params?.categoria) query.set('categoria', params.categoria);
+  if (params?.ano) query.set('ano', String(params.ano));
+  if (params?.limite) query.set('limite', String(params.limite));
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  return apiFetch<RankingItemApi[]>(`/api/ranking${qs}`);
+}
 
-// Função para buscar beneficiários de programas sociais
-export const buscarBeneficiariosPrograma = async (programa: string, params: { codigoIbge?: string; pagina?: number }) => {
-  try {
-    const response = await apiTransparencia.get(`/${programa}-beneficiario-por-municipio`, { params });
-    return response.data || [];
-  } catch (error) {
-    console.error(`Erro ao buscar beneficiários de ${programa}:`, error);
-    return [];
-  }
-};
+/**
+ * Calcula os impostos para um dado salário bruto.
+ * Utiliza a metodologia corrigida do backend com tabelas progressivas reais.
+ */
+export async function calcularImpostos(salarioBruto: number): Promise<ResultadoCalculadora> {
+  return apiFetch<ResultadoCalculadora>(`/api/calculadora?salario_bruto=${salarioBruto}`);
+}
 
-// Função para buscar servidor por nome
-export const buscarServidor = async (nome: string) => {
-  try {
-    const response = await apiTransparencia.get('/servidores', { params: { nome } });
-    return response.data || [];
-  } catch (error) {
-    console.error('Erro ao buscar servidor:', error);
-    return [];
-  }
-};
+/**
+ * Traduz um valor monetário em comparações compreensíveis.
+ */
+export async function traduzirValorApi(valor: number, limite = 5): Promise<TraducaoValor> {
+  return apiFetch<TraducaoValor>(`/api/traduzir?valor=${valor}&limite=${limite}`);
+}
 
-// Função para buscar remuneração de servidor
-export const buscarRemuneracaoServidor = async (idServidor: number, params?: { mes?: number; ano?: number }) => {
-  try {
-    const response = await apiTransparencia.get(`/servidores/${idServidor}/remuneracoes`, { params });
-    return response.data || [];
-  } catch (error) {
-    console.error('Erro ao buscar remuneração:', error);
-    return [];
-  }
-};
+/**
+ * Busca a lista de senadores.
+ */
+export async function buscarSenadores(): Promise<DeputadoResumo[]> {
+  return apiFetch<DeputadoResumo[]>('/api/senadores');
+}
+
+export { ApiError };
